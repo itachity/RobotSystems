@@ -3,6 +3,7 @@ import logging
 from picarx_improved import Picarx
 
 ttd = 3.0
+sp = 80
 
 def drive(px: Picarx, speed: int, steering: int, duration: float):
     px.set_dir_servo_angle(steering)
@@ -14,7 +15,7 @@ def drive(px: Picarx, speed: int, steering: int, duration: float):
     px.stop()
     px.set_dir_servo_angle(0)
 
-def parallel_park_left(px: Picarx, speed=35):
+def parallel_park_left(px: Picarx, speed=sp):
     logging.info("Parallel park LEFT")
     px.set_dir_servo_angle(-25)
     px.backward(speed); time.sleep(ttd)
@@ -23,7 +24,7 @@ def parallel_park_left(px: Picarx, speed=35):
     px.stop()
     px.set_dir_servo_angle(0)
 
-def parallel_park_right(px: Picarx, speed=35):
+def parallel_park_right(px: Picarx, speed=sp):
     logging.info("Parallel park RIGHT")
     px.set_dir_servo_angle(25)
     px.backward(speed); time.sleep(ttd)
@@ -32,7 +33,7 @@ def parallel_park_right(px: Picarx, speed=35):
     px.stop()
     px.set_dir_servo_angle(0)
 
-def k_turn_left(px: Picarx, speed=40):
+def k_turn_left(px: Picarx, speed=sp):
     logging.info("K-turn LEFT")
     # forward left
     px.set_dir_servo_angle(-25)

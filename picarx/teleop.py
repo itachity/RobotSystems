@@ -26,6 +26,9 @@ def main():
     px = Picarx()
     print_menu()
 
+    sp = 80
+    ttd = 3.0
+
     try:
         while True:
             cmd = input("\nEnter command: ").strip().lower()
@@ -33,17 +36,17 @@ def main():
             if cmd == "q":
                 break
             elif cmd == "w":
-                drive(px, speed=40, steering=0, duration=1.0)
+                drive(px, speed=sp, steering=0, duration=ttd)
             elif cmd == "s":
-                drive(px, speed=-40, steering=0, duration=1.0)
+                drive(px, speed=-sp, steering=0, duration=ttd)
             elif cmd == "a":
-                drive(px, speed=40, steering=-20, duration=1.0)
+                drive(px, speed=sp, steering=-20, duration=ttd)
             elif cmd == "d":
-                drive(px, speed=40, steering=20, duration=1.0)
+                drive(px, speed=sp, steering=20, duration=ttd)
             elif cmd == "z":
-                drive(px, speed=-40, steering=-20, duration=1.0)
+                drive(px, speed=-sp, steering=-20, duration=ttd)
             elif cmd == "c":
-                drive(px, speed=-40, steering=20, duration=1.0)
+                drive(px, speed=-sp, steering=20, duration=ttd)
             elif cmd == "pl":
                 parallel_park_left(px)
             elif cmd == "pr":
