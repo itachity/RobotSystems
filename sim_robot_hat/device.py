@@ -29,30 +29,38 @@ class Devices():
 
     def __init__(self):
         hat_path = None
-        for file in os.listdir('/proc/device-tree/'):
+
+        # Desktop/offline fix: /proc/device-tree doesn't exist on Windows
+        if os.name == "nt" or not os.path.exists(self.HAT_DEVICE_TREE):
+            # keep defaults: spk_en=20, motor_mode=1, etc.
+            self.name = "desktop"
+            self.vendor = "offline"
+            self.uuid = ""
+            self.product_id = 0
+            self.product_ver = 0
+            return
+
+        # Use the constant instead of hardcoding the path
+        for file in os.listdir(self.HAT_DEVICE_TREE):
             if 'hat' in file:
-                # print("hat detected")
-                if os.path.exists(f"/proc/device-tree/{file}/uuid") \
-                    and os.path.isfile(f"/proc/device-tree/{file}/uuid"):
-                    # print("uuid detected")
-                    with open(f"/proc/device-tree/{file}/uuid", "r") as f:
-                        uuid = f.read()[:-1] # [:-1] rm \x00
+                uuid_path = os.path.join(self.HAT_DEVICE_TREE, file, "uuid")
+                if os.path.exists(uuid_path) and os.path.isfile(uuid_path):
+                    with open(uuid_path, "r") as f:
+                        uuid = f.read()[:-1]  # remove \x00
                         if uuid in self.HAT_UUIDs:
-                            hat_path = f"/proc/device-tree/{file}"
+                            hat_path = os.path.join(self.HAT_DEVICE_TREE, file)
                             break
 
         if hat_path is not None:
-            with open(f"{hat_path}/product", "r") as f:
+            with open(os.path.join(hat_path, "product"), "r") as f:
                 self.name = f.read()
-            with open(f"{hat_path}/product_id", "r") as f:
-                self.product_id = f.read()[:-1] # [:-1] rm \x00
-                self.product_id = int(self.product_id, 16)
-            with open(f"{hat_path}/product_ver", "r") as f:
-                self.product_ver = f.read()[:-1]
-                self.product_ver = int(self.product_ver, 16)
-            with open(f"{hat_path}/uuid", "r") as f:
-                self.uuid = f.read()[:-1] # [:-1] rm \x00
-            with open(f"{hat_path}/vendor", "r") as f:
+            with open(os.path.join(hat_path, "product_id"), "r") as f:
+                self.product_id = int(f.read()[:-1], 16)
+            with open(os.path.join(hat_path, "product_ver"), "r") as f:
+                self.product_ver = int(f.read()[:-1], 16)
+            with open(os.path.join(hat_path, "uuid"), "r") as f:
+                self.uuid = f.read()[:-1]
+            with open(os.path.join(hat_path, "vendor"), "r") as f:
                 self.vendor = f.read()
 
             for device in self.DEVICES:

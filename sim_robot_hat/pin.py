@@ -1,8 +1,45 @@
 #!/usr/bin/env python3
 from .basic import _Basic_class
-import gpiozero  # https://gpiozero.readthedocs.io/en/latest/installing.html
-from gpiozero import OutputDevice, InputDevice, Button
+try:
+    import gpiozero  # https://gpiozero.readthedocs.io/en/latest/installing.html
+    from gpiozero import OutputDevice, InputDevice, Button
+except ImportError:
+    gpiozero = None  # desktop simulation
 
+    class _FakePinFactory:
+        def close(self):
+            pass
+
+    class _FakeDevice:
+        def __init__(self, pin, *args, **kwargs):
+            self.pin = pin
+            self.value = 0
+            self.pin_factory = _FakePinFactory()
+            # used by Button logic
+            self.when_pressed = None
+            self.when_released = None
+
+        def on(self):
+            self.value = 1
+
+        def off(self):
+            self.value = 0
+
+        def close(self):
+            pass
+
+    class OutputDevice(_FakeDevice):
+        pass
+
+    class InputDevice(_FakeDevice):
+        def __init__(self, pin, *args, **kwargs):
+            super().__init__(pin, *args, **kwargs)
+            self.value = 0  # inputs default low
+
+    class Button(_FakeDevice):
+        def __init__(self, pin=None, pull_up=None, bounce_time=None, *args, **kwargs):
+            super().__init__(pin, *args, **kwargs)
+            self.bounce_time = bounce_time
 
 class Pin(_Basic_class):
     """Pin manipulation class"""

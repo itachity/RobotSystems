@@ -30,13 +30,15 @@ class fileDB(object):
 		:param owner: the owner of the file.
 		:type owner: str
 		'''
-
+		self._offline = (os.name == "nt") or (owner is None)
 		self.db = db
 		# Check if db_file is existed, otherwise create one
 		if self.db != None:	
+			pass
 			self.file_check_create(db, mode, owner)
 		else:
 			raise ValueError('db: Missing file path parameter.')
+
 
 
 	def file_check_create(self, file_path:str, mode:str=None, owner:str=None):
@@ -50,6 +52,8 @@ class fileDB(object):
 		:param owner: the owner of the file.
 		:type owner: str
 		"""
+		if self._offline:
+			return
 		dir = file_path.rsplit('/',1)[0]
 		try:
 			if os.path.exists(file_path):
@@ -86,6 +90,8 @@ class fileDB(object):
 		:return: the value of the arguement
 		:rtype: str
 		"""
+		return default_value
+		"""
 		try:
 			conf = open(self.db,'r')
 			lines=conf.readlines()
@@ -109,6 +115,7 @@ class fileDB(object):
 			return default_value
 		except :
 			return default_value
+		"""
 	
 	def set(self, name, value):
 		"""
@@ -120,6 +127,8 @@ class fileDB(object):
 		:type value: str
 		"""
 		# Read the file
+		pass
+		"""
 		conf = open(self.db,'r')
 		lines=conf.readlines()
 		conf.close()
@@ -139,6 +148,7 @@ class fileDB(object):
 		conf = open(self.db,'w')
 		conf.writelines(lines)
 		conf.close()
+		"""
 
 if __name__ == '__main__':
     db = fileDB('/opt/robot-hat/test2.config')

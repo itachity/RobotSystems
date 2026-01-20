@@ -37,14 +37,15 @@ def error(msg, end='\n', file=sys.stdout, flush=False):
 
 def set_volume(value):
     """
-    Set volume
-
-    :param value: volume(0~100)
-    :type value: int
+    Set volume (Pi only). Desktop simulation should do nothing.
     """
+    if os.name == "nt":
+        return  # Windows/offline: skip sudo/amixer
+
     value = min(100, max(0, value))
     cmd = "sudo amixer -M sset 'PCM' %d%%" % value
     os.system(cmd)
+
 
 
 def command_exists(cmd):
@@ -64,13 +65,21 @@ def run_command(cmd):
     :type cmd: str
     :return: status, output
     :rtype: tuple
+
+    Run command and return status and output
     """
+    # Windows/offline: don't execute Pi/Linux commands
+    if os.name == "nt":
+        # optional print so you can see what would have run
+        # print(f"[SIM] Skipping command on Windows: {cmd}")
+        return 0, ""
+
     import subprocess
-    p = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    result = p.stdout.read().decode('utf-8')
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    result = p.stdout.read().decode('utf-8', errors="ignore")
     status = p.poll()
     return status, result
+
 
 def command_exists(cmd):
     import subprocess
@@ -178,6 +187,9 @@ def enable_speaker():
     """
     Enable speaker
     """
+    if os.name == "nt":
+        return
+
     from . import __device__
     pincmd = ''
     if command_exists("pinctrl"):
@@ -197,6 +209,9 @@ def disable_speaker():
     """
     Disable speaker
     """
+    if os.name == "nt":
+        return
+
     from . import __device__
     pincmd = ''
     if command_exists("pinctrl"):

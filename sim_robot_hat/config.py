@@ -19,51 +19,51 @@ class Config():
         self._dict[key] = value
 
 
-    def file_check_create(self, path:str, mode:str=None, owner:str=None, description=None):
-        dir = path.rsplit('/', 1)[0] # rsplit(), split from right; split(), split from left
+    def file_check_create(self, path: str, mode: str = None, owner: str = None, description=None):
+        # Windows/offline: do not create / chmod / chown anything
+        if os.name == "nt":
+            return
+
+        # Robust path handling (works on Linux/Pi)
+        dir = os.path.dirname(path)
+
         try:
             # check file
             if os.path.exists(path):
                 if not os.path.isfile(path):
-                    print('Could not create file, there is a folder with the same name')
+                    print("Could not create file, there is a folder with the same name")
                     return
-                else:
-                    # file already exists
-                    pass
             else:
                 # check directory
                 if os.path.exists(dir):
                     if not os.path.isdir(dir):
-                        print('Could not create file, there is a file with the same name')
+                        print("Could not create file, there is a file with the same name")
                         return
-                    else:
-                        # dir already exists
-                        pass
                 else:
-                    # create directory
-                    os.makedirs(dir, mode=0o754) # makedirs， make multi-level directories
+                    os.makedirs(dir, mode=0o754)
                     sleep(0.001)
 
                 # create file
-                with open(path, 'w') as f:
-                    if description != None:
-                        lines = description.split('\n')
-                        _desc = ''
+                with open(path, "w") as f:
+                    if description is not None:
+                        lines = description.split("\n")
+                        _desc = ""
                         for line in lines:
-                            _desc += '# '+line+'\n'
-                        _desc += '\n'
+                            _desc += "# " + line + "\n"
+                        _desc += "\n"
                         f.write(_desc)
                     else:
-                        f.write('')
+                        f.write("")
 
-                # set mode
-                if mode != None:
-                    os.popen('sudo chmod %s %s'%(mode, path))
-                # set owner
-                if owner != None:
-                    os.popen('sudo chown -R %s:%s %s'%(owner, owner, dir))
+                # set mode/owner only on Pi/Linux
+                if mode is not None:
+                    os.popen("sudo chmod %s %s" % (mode, path))
+                if owner is not None:
+                    os.popen("sudo chown -R %s:%s %s" % (owner, owner, dir))
+
         except Exception as e:
-            raise(e)
+            raise e
+
 
     @staticmethod
     def _read(path):

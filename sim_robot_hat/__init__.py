@@ -18,7 +18,11 @@ from .robot import Robot
 from .version import __version__
 
 from .device import Devices
-__device__ = Devices()
+try:
+    __device__ = Devices()
+except Exception:
+    __device__ = None
+
 
 def __usage__():
     print('''
