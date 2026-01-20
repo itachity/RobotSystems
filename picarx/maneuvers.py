@@ -63,44 +63,45 @@ def parallel_park_right(px: Picarx, speed=sp):
 
 def k_turn_left(px: Picarx, speed=sp):
     logging.info("K-turn LEFT")
-    H = _hard_turn(px)
+    H = int(0.90 * px.DIR_MAX)
 
-    # forward left (hard lock)
-    px.set_dir_servo_angle(-H)
-    time.sleep(SERVO_SETTLE)
+    # 1) Forward left
+    px.set_dir_servo_angle(-H); time.sleep(SERVO_SETTLE)
     px.forward(speed); time.sleep(ttd)
     px.stop()
 
-    # reverse right (hard lock)
-    px.set_dir_servo_angle(+H)
-    time.sleep(SERVO_SETTLE)
+    # 2) Reverse right
+    px.set_dir_servo_angle(+H); time.sleep(SERVO_SETTLE)
     px.backward(speed); time.sleep(ttd)
     px.stop()
 
-    # straighten and drive out
-    px.set_dir_servo_angle(0)
-    time.sleep(SERVO_SETTLE)
+    # 3) Forward left again 
+    px.set_dir_servo_angle(-H); time.sleep(SERVO_SETTLE)
     px.forward(speed); time.sleep(0.65 * ttd)
     px.stop()
+
+    # straighten
+    px.set_dir_servo_angle(0)
+
 
 def k_turn_right(px: Picarx, speed=sp):
     logging.info("K-turn RIGHT")
-    H = _hard_turn(px)
+    H = int(0.90 * px.DIR_MAX)
 
-    # forward right
-    px.set_dir_servo_angle(+H)
-    time.sleep(SERVO_SETTLE)
+    # 1) Forward right
+    px.set_dir_servo_angle(+H); time.sleep(SERVO_SETTLE)
     px.forward(speed); time.sleep(ttd)
     px.stop()
 
-    # reverse left
-    px.set_dir_servo_angle(-H)
-    time.sleep(SERVO_SETTLE)
+    # 2) Reverse left
+    px.set_dir_servo_angle(-H); time.sleep(SERVO_SETTLE)
     px.backward(speed); time.sleep(ttd)
     px.stop()
 
-    # straighten and drive out
-    px.set_dir_servo_angle(0)
-    time.sleep(SERVO_SETTLE)
+    # 3) Forward right again
+    px.set_dir_servo_angle(+H); time.sleep(SERVO_SETTLE)
     px.forward(speed); time.sleep(0.65 * ttd)
     px.stop()
+
+    # straighten
+    px.set_dir_servo_angle(0)

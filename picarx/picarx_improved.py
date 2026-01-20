@@ -49,6 +49,13 @@ class Picarx(object):
     PRESCALER = 10
     TIMEOUT = 0.02
 
+    # Rough geometry
+    WHEELBASE_M = 0.10     # meters (front axle to rear axle)
+    TRACK_WIDTH_M = 0.12   # meters (left-to-right wheel distance)
+
+    MIN_TURN_PWM = 30      # prevents inside wheel stalling during turns
+
+
     # servo_pins: camera_pan_servo, camera_tilt_servo, direction_servo
     # motor_pins: left_swicth, right_swicth, left_pwm, right_pwm
     # grayscale_pins: 3 adc channels
@@ -209,62 +216,88 @@ class Picarx(object):
         self.set_motor_speed(2, speed)
 
     # Code Improvement helper functions
-    def _turn_scale_sine(self, angle_deg: float, min_scale: float = 0.35):
+    def _ackermann_inner_ratio(self, angle_deg: float) -> float:
         """
-        Returns a smooth [min_scale..1.0] multiplier for the inside wheel speed.
-        angle_deg is steering angle in degrees.
+        Returns inner/outer speed ratio based on a simple Ackermann approximation.
+        Output is clamped to [0.4..1.0] so it doesn't get crazy.
         """
         a = abs(angle_deg)
-        a = constrain(a, 0, self.DIR_MAX)
-        x = a / self.DIR_MAX  # 0..1
+        a = constrain(a, 0.0, self.DIR_MAX)
 
-        # smooth curve: 1 at 0 deg -> min_scale at max steering
-        scale = 1.0 - (1.0 - min_scale) * math.sin(x * (math.pi / 2))
-        return constrain(scale, min_scale, 1.0)
+        if a < 1e-6:
+            return 1.0
+
+        delta = math.radians(a)
+        # Turning radius of the vehicle centerline
+        R = self.WHEELBASE_M / math.tan(delta)
+
+        # ratio = v_inner / v_outer
+        ratio = (R - self.TRACK_WIDTH_M / 2.0) / (R + self.TRACK_WIDTH_M / 2.0)
+
+        return constrain(ratio, 0.4, 1.0)
+
 
     def backward(self, speed):
         angle = self.dir_current_angle
-        inside_scale = self._turn_scale_sine(angle)
+        ratio = self._ackermann_inner_ratio(angle)
+
+        outer = float(speed)
+        inner = outer * ratio
+
+        if abs(angle) > 1e-3 and inner > 0 and inner < self.MIN_TURN_PWM:
+            inner = float(self.MIN_TURN_PWM)
 
         if angle > 0:
-            left_cmd = speed * inside_scale
-            right_cmd = speed
+            left_cmd = inner
+            right_cmd = outer
         elif angle < 0:
-            left_cmd = speed
-            right_cmd = speed * inside_scale
+            left_cmd = outer
+            right_cmd = inner
         else:
-            left_cmd = speed
-            right_cmd = speed
+            left_cmd = outer
+            right_cmd = outer
 
-        logging.debug(f"backward speed={speed}, angle={angle}, inside_scale={inside_scale:.2f}, "
-                      f"left_cmd={left_cmd:.1f}, right_cmd={right_cmd:.1f}")
+        logging.debug(
+            f"backward speed={speed}, angle={angle}, ratio={ratio:.2f}, "
+            f"left_cmd={left_cmd:.1f}, right_cmd={right_cmd:.1f}"
+        )
 
         self.set_motor_speed(1, -left_cmd)
         self.set_motor_speed(2, right_cmd)
 
 
+
     def forward(self, speed):
         angle = self.dir_current_angle
-        inside_scale = self._turn_scale_sine(angle)
+        ratio = self._ackermann_inner_ratio(angle)
+
+        outer = float(speed)
+        inner = outer * ratio
+
+        # prevent inside wheel stall when turning
+        if abs(angle) > 1e-3 and inner > 0 and inner < self.MIN_TURN_PWM:
+            inner = float(self.MIN_TURN_PWM)
 
         if angle > 0:
-            # turning one direction: left is inside wheel
-            left_cmd = speed * inside_scale
-            right_cmd = speed
+            # steering +: assume left is inner (swap if your steering is opposite)
+            left_cmd = inner
+            right_cmd = outer
         elif angle < 0:
-            # turning the other direction: right is inside wheel
-            left_cmd = speed
-            right_cmd = speed * inside_scale
+            left_cmd = outer
+            right_cmd = inner
         else:
-            left_cmd = speed
-            right_cmd = speed
+            left_cmd = outer
+            right_cmd = outer
 
-        logging.debug(f"forward speed={speed}, angle={angle}, inside_scale={inside_scale:.2f}, "
-                      f"left_cmd={left_cmd:.1f}, right_cmd={right_cmd:.1f}")
+        logging.debug(
+            f"forward speed={speed}, angle={angle}, ratio={ratio:.2f}, "
+            f"left_cmd={left_cmd:.1f}, right_cmd={right_cmd:.1f}"
+        )
 
         self.set_motor_speed(1, left_cmd)
         self.set_motor_speed(2, -right_cmd)
-               
+
+                   
 
     def stop(self):
         '''
