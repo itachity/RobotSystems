@@ -26,8 +26,8 @@ def main():
     px = Picarx()
     print_menu()
 
-    sp = 80
-    ttd = 3.0
+    sp = 60
+    ttd = 2.0
 
     try:
         while True:
