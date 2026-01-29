@@ -13,7 +13,7 @@ class Sensor():
 
     def poll(self):
         while True:
-            vals = [a.read() for a in adcs]
+            vals = [a.read() for a in self.adcs]
             print(vals)
             time.sleep(0.05)
 
