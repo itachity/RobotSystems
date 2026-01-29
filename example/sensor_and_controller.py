@@ -23,7 +23,7 @@ class Sensor():
             time.sleep(0.05)
 
 class Interpreter():
-     """
+    """
     Turns 3 sensor readings into an offset in [-1, 1].
       - convert raw readings into a "line score" relative to local mean
       - polarity decides whether low means line (dark) or high means line (light)
