@@ -65,17 +65,17 @@ def k_turn_left(px: Picarx, speed=sp):
     logging.info("K-turn LEFT")
     H = int(0.90 * px.DIR_MAX)
 
-    # 1) Forward left
+    # Forward left
     px.set_dir_servo_angle(-H); time.sleep(SERVO_SETTLE)
     px.forward(speed); time.sleep(ttd)
     px.stop()
 
-    # 2) Reverse right
+    # Reverse right
     px.set_dir_servo_angle(+H); time.sleep(SERVO_SETTLE)
     px.backward(speed); time.sleep(ttd)
     px.stop()
 
-    # 3) Forward left again 
+    # Forward left again 
     px.set_dir_servo_angle(-H); time.sleep(SERVO_SETTLE)
     px.forward(speed); time.sleep(0.65 * ttd)
     px.stop()
@@ -88,17 +88,17 @@ def k_turn_right(px: Picarx, speed=sp):
     logging.info("K-turn RIGHT")
     H = int(0.90 * px.DIR_MAX)
 
-    # 1) Forward right
+    # Forward right
     px.set_dir_servo_angle(+H); time.sleep(SERVO_SETTLE)
     px.forward(speed); time.sleep(ttd)
     px.stop()
 
-    # 2) Reverse left
+    # Reverse left
     px.set_dir_servo_angle(-H); time.sleep(SERVO_SETTLE)
     px.backward(speed); time.sleep(ttd)
     px.stop()
 
-    # 3) Forward right again
+    # Forward right again
     px.set_dir_servo_angle(+H); time.sleep(SERVO_SETTLE)
     px.forward(speed); time.sleep(0.65 * ttd)
     px.stop()
