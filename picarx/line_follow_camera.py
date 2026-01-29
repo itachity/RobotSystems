@@ -1,25 +1,36 @@
 import time
+import cv2
 
 try:
-    from robot_hat import ADC
+    from picamera2 import Picamera2
 except ImportError:
-    from sim_robot_hat import ADC
+    Picamera2 = None
 
 class Sensor():
     """
-    Reads 3 sensors
+    Reads camera
     """
-    def __init__(self):
+    def __init__(self, width: int = 320, height: int = 240):
+        if Picamera2 is None:
+            raise RuntimeError("picamera2 not available. Install python3-picamera2 on the Pi.")
+        self.w = width
+        self.h = height
+        self.picam2 = Picamera2()
+        config = self.picam2.create_preview_configuration(main={"size": (width, height), "format": "RGB888"})
+        self.picam2.configure(config)
+        self.picam2.start()
+        time.sleep(0.2)
 
-        self.adcs = [ADC(p) for p in ["A0", "A1", "A2"]]
+    def read_frame(self):
+        # Returns RGB; OpenCV wants BGR
+        rgb = self.picam2.capture_array()
+        bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+        return bgr
 
-    def read(self):
-        return [a.read() for a in self.adcs]
 
     def poll(self):
         while True:
-            vals = [a.read() for a in self.adcs]
-            print(vals)
+            print(self.read_frame)
             time.sleep(0.05)
 
 class Interpreter():
@@ -106,6 +117,24 @@ class Interpreter():
 
         return offset
 
+class Controller():
+    """
+    Maps offset in [-1, 1] to a steering angle command.
+    """
+    def __init__(self, car, gain_deg: float = 25.0, max_deg: float = 35.0):
+        self.car = car
+        self.gain_deg = float(gain_deg)
+        self.max_deg = float(max_deg)
+
+    def steer(self, offset: float) -> float:
+        # positive offset means line is left of robot, so steer left (positive angle)
+        angle = self.gain_deg * offset
+        angle = max(-self.max_deg, min(self.max_deg, angle))
+
+        # SunFounder PiCar-X typically uses set_dir_servo_angle(angle)
+        # If your method name differs, fix it here.
+        self.car.set_dir_servo_angle(angle)
+        return angle
 
 sense = Sensor()
 interpret = Interpreter()
