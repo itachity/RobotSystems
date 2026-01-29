@@ -117,7 +117,7 @@ class Controller():
     """
     Maps offset in [-1, 1] to a steering angle command.
     """
-    def __init__(self, car, gain_deg = 22.0, max_deg = None, speed_scale = 0.6, min_speed = 30):
+    def __init__(self, car, gain_deg = 22.0, max_deg = None, speed_scale = 0.6, min_speed = 15):
         self.car = car
         self.gain_deg = float(gain_deg)
         self.max_deg = float(max_deg) if max_deg is not None else float(getattr(car, "DIR_MAX", 30))
@@ -126,7 +126,7 @@ class Controller():
 
     def steer_angle(self, offset):
         # positive offset => line is left => steer left (positive angle)
-        angle = self.gain_deg * float(offset)
+        angle = -self.gain_deg * float(offset)
         angle = max(-self.max_deg, min(self.max_deg, angle))
         self.car.set_dir_servo_angle(angle)
         return angle
