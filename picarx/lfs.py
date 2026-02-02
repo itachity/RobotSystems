@@ -153,7 +153,7 @@ class Controller():
 
 def line_follow_loop(car, sensor, interpreter, controller,
                      base_speed=25, dt=0.05,
-                     offset_change_thresh=0.20,
+                     offset_change_thresh=0.50,
                      stop_time=0.06,
                      min_stop_interval=0.40):
     """
