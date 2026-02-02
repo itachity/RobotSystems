@@ -151,27 +151,51 @@ class Controller():
         return max(self.min_speed, min(100, s))
 
 
-def line_follow_loop(car, sensor, interpreter, controller, base_speed=25, dt=0.05):
-    # Requirement 3.4: loop integrates sensing -> interpretation -> control -> motion
+def line_follow_loop(car, sensor, interpreter, controller,
+                     base_speed=25, dt=0.05,
+                     move_time=0.12, stop_time=0.05):
+    """
+    Step-drive line following:
+      1) Sense + compute offset
+      2) Set steering
+      3) Move forward briefly
+      4) Stop briefly
+      5) Repeat
+    """
     try:
         while True:
+            # 1) Sense
             readings = sensor.read()
             offset = interpreter.process(readings)
+
+            # 2) Steer (sets servo inside)
             angle = controller.steer_angle(offset)
+
+            # 3) Speed (min/base both 25 enforced by controller + base_speed=25)
             speed = controller.speed_cmd(base_speed, offset)
 
+            # 4) Move briefly
             car.forward(speed)
-
             logging.info(
-                f"adc={readings}  offset={offset:+.2f}  angle={angle:+.1f}  speed={speed:3d}"
+                f"adc={readings}  offset={offset:+.2f}  angle={angle:+.1f}  speed={speed:3d}  ACTION=move"
             )
-            time.sleep(dt)
+            time.sleep(move_time)
+
+            # 5) Stop briefly
+            car.stop()
+            logging.info("ACTION=stop")
+            time.sleep(stop_time)
+
+            # optional loop pacing (usually not needed if using stop_time)
+            if dt > 0:
+                time.sleep(dt)
 
     except KeyboardInterrupt:
         pass
     finally:
         car.stop()
         car.set_dir_servo_angle(0)
+
 
 
 def main():
