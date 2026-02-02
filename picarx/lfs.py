@@ -258,8 +258,8 @@ def main():
     controller = Controller(
         car,
         kp_deg=16.0,
-        base_speed=20,
-        min_speed=20,
+        base_speed=22,
+        min_speed=22,
         speed_scale=0.50,
         search_speed=32,
         search_max_deg=22.0,
