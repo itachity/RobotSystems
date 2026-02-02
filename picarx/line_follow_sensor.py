@@ -143,6 +143,11 @@ def line_follow_loop(car, sensor, interpreter, controller, base_speed = 15, dt =
         while True:
             readings = sensor.read()
             offset = interpreter.process(readings)
+            logging.info(
+                f"adc={readings}  offset={offset:+.2f}"
+            )
+
+            """
             angle = controller.steer_angle(offset)
             speed = controller.speed_cmd(base_speed, offset)
             car.forward(speed)
@@ -150,7 +155,7 @@ def line_follow_loop(car, sensor, interpreter, controller, base_speed = 15, dt =
             logging.info(
                 f"adc={readings}  offset={offset:+.2f}  angle={angle:+.1f} speed={speed:3d} "
             )
-
+            """
             time.sleep(dt)
 
     except KeyboardInterrupt:
