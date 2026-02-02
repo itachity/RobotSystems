@@ -133,7 +133,7 @@ class Controller():
     For SunFounder discrete tracking:
       offset is in {-1,0,+1} and gain_deg should be 'offset_deg' (e.g., 20).
     """
-    def __init__(self, car, gain_deg = 20.0, max_deg = None, speed_scale = 0.0, min_speed = 10):
+    def __init__(self, car, gain_deg = 20.0, max_deg = None, speed_scale = 0.0, min_speed = 25):
         self.car = car
         self.gain_deg = float(gain_deg)
         self.max_deg = float(max_deg) if max_deg is not None else float(getattr(car, "DIR_MAX", 30))
