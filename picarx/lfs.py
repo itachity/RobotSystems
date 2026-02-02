@@ -15,16 +15,13 @@ except ImportError:
 class Sensor():
     """
     Reads 3 sensors
-    - On robot: uses Picarx grayscale module (recommended, matches SunFounder)
-    - On desktop: falls back to ADC reads (sim)
     """
-    def __init__(self, car: Picarx = None):
-        self.car = car
-        self.adcs = [ADC(p) for p in ["A0", "A1", "A2"]]  # fallback only
+    def __init__(self):
+        # Requirement 3.1.1: ADC structures as attributes using self.
+        self.adcs = [ADC(p) for p in ["A0", "A1", "A2"]]
 
     def read(self):
-        if self.car is not None and hasattr(self.car, "get_grayscale_data"):
-            return self.car.get_grayscale_data()
+        # Requirement 3.1.2: poll the three ADC structures and return as list
         return [a.read() for a in self.adcs]
 
     def poll(self):
@@ -36,104 +33,102 @@ class Sensor():
 
 class Interpreter():
     """
-    SunFounder-style 4-state interpreter based on get_line_status():
-      _state = [b0, b1, b2] where 0 means line, 1 means background
-
-    Mapping copied from the SunFounder sample (as in the transcript):
-      if _state == [0,0,0] -> 'stop'
-      elif _state[1] == 1  -> 'forward'
-      elif _state[0] == 1  -> 'right'
-      elif _state[2] == 1  -> 'left'
+    Turns 3 sensor readings into an offset in [-1, 1].
+      - Robust to lighting: uses local normalization (mean) + scale-free thresholds
+      - Polarity: "dark" or "light"
+      - Edge detection between adjacent sensors to infer which side the line is on
+      - Returns magnitude for slight vs very off-center
+        (small |offset| means slight, near 1 means very off-center)
+      - Positive offset means the line is LEFT of the robot
     """
-    def __init__(self, car: Picarx, offset_deg: float = 20.0, px_power: int = 10):
-        self.car = car
-        self.offset_deg = float(offset_deg)
-        self.px_power = int(px_power)
+    def __init__(self, sensitivity=0.25, polarity="dark", deadband=0.05):
+        # Requirement 3.2.1
+        if polarity not in ("dark", "light"):
+            raise ValueError('polarity must be "dark" or "light"')
 
-        self.state = "stop"
-        self.last_state = "stop"
+        self.sensitivity = float(sensitivity)
+        self.polarity = polarity
+        self.deadband = float(deadband)
 
-    def get_status(self, val_list):
-        _state = self.car.get_line_status(val_list)  # [bool/binary, bool/binary, bool/binary]
-        # Normalize in case it returns True/False
-        _state = [1 if bool(x) else 0 for x in _state]
-
-        if _state == [0, 0, 0]:
-            return "stop"
-        elif _state[1] == 1:
-            return "forward"
-        elif _state[0] == 1:
-            return "right"
-        elif _state[2] == 1:
-            return "left"
-        return "stop"
-
-    def outHandle(self, sensor: Sensor, timeout_s: float = 1.5):
-        """
-        SunFounder recovery logic:
-          - if last_state == 'left': steer -DIR_MAX, reverse slowly
-          - if last_state == 'right': steer +DIR_MAX, reverse slowly
-          - keep reversing until state changes away from last_state
-        """
-        if self.last_state == "left":
-            self.car.set_dir_servo_angle(-float(getattr(self.car, "DIR_MAX", 30)))
-            self.car.backward(self.px_power)
-        elif self.last_state == "right":
-            self.car.set_dir_servo_angle(+float(getattr(self.car, "DIR_MAX", 30)))
-            self.car.backward(self.px_power)
-        else:
-            self.car.set_dir_servo_angle(0)
-            self.car.backward(self.px_power)
-
-        t0 = time.time()
-        while True:
-            gm_val_list = sensor.read()
-            gm_state = self.get_status(gm_val_list)
-
-            logging.debug(f"outHandle adc={gm_val_list} state={gm_state} last={self.last_state}")
-
-            # break when it changes (SunFounder code logic)
-            if gm_state != self.last_state:
-                break
-
-            # safety so you don't get stuck forever
-            if (time.time() - t0) > timeout_s:
-                logging.debug("outHandle timeout, breaking to avoid infinite loop")
-                break
-
-            time.sleep(0.01)
-
-        self.car.stop()
-        time.sleep(0.01)
+        # Extra robustness knobs (still same class)
+        self.noise_floor_frac = 0.05   # ignore tiny score changes
+        self.snap_conf = 0.90          # snap to ±1 when very confident
+        self.snap_mag = 0.60           # only snap when already far from center
 
     def process(self, readings):
-        """
-        Returns offset in [-1, 1] but is actually discrete:
-          left  -> +1
-          right -> -1
-          forward/stop -> 0
-        Also updates self.state and self.last_state.
-        """
-        self.state = self.get_status(readings)
+        # Requirement 3.2.2 + 3.2.3
+        if len(readings) != 3:
+            raise ValueError("readings must be a list of 3 values")
 
-        if self.state != "stop":
-            self.last_state = self.state
+        x0, x1, x2 = [float(v) for v in readings]
 
-        if self.state == "left":
-            return +1.0
-        elif self.state == "right":
-            return -1.0
+        # Local normalization (robust to global lighting)
+        mu = (x0 + x1 + x2) / 3.0
+        dev = [x0 - mu, x1 - mu, x2 - mu]
+
+        # Convert to "line-likelihood" score: higher score => more likely on the line
+        # dark line => sensor value drops => dev negative => score = -dev
+        if self.polarity == "dark":
+            score = [-d for d in dev]
         else:
+            score = [d for d in dev]
+
+        # Make scores non-negative and scale-free
+        smin = min(score)
+        score = [s - smin for s in score]  # shift so min is 0
+
+        mag = max(score[0], score[1], score[2], 1.0)
+        thr = self.sensitivity * mag
+
+        # Edge detection between adjacent sensors (left-mid, mid-right)
+        e01 = abs(score[0] - score[1])
+        e12 = abs(score[1] - score[2])
+        edge01 = e01 > thr
+        edge12 = e12 > thr
+
+        # Weights for centroid estimate (continuous offset)
+        # Ignore tiny noise by subtracting a small floor
+        noise_floor = self.noise_floor_frac * mag
+        w = [max(0.0, s - noise_floor) for s in score]
+        wsum = w[0] + w[1] + w[2]
+
+        # If no strong "line evidence", return centered (or you could keep last offset)
+        if wsum < 1e-6:
             return 0.0
+
+        # Weighted position: left=+1, mid=0, right=-1
+        offset = (w[0] * 1.0 + w[1] * 0.0 + w[2] * -1.0) / wsum
+
+        # Determine sign + severity using edge location + strength
+        # edge_strength is scale-free: 0..~1+
+        edge_strength = max(e01, e12) / (mag + 1e-9)
+        # normalize confidence against the chosen sensitivity
+        confidence = min(1.0, edge_strength / (self.sensitivity + 1e-9))
+
+        # If we have a strong single edge, we can bias the magnitude slightly
+        # to represent “very off-center” vs “slightly off-center”
+        if (edge01 or edge12) and confidence > self.snap_conf and abs(offset) > self.snap_mag:
+            offset = 1.0 if offset > 0 else -1.0
+
+        # Deadband to prevent twitching near center
+        if abs(offset) < self.deadband:
+            offset = 0.0
+
+        # Clamp to [-1, 1]
+        if offset > 1.0:
+            offset = 1.0
+        elif offset < -1.0:
+            offset = -1.0
+
+        return offset
 
 
 class Controller():
     """
     Maps offset in [-1, 1] to a steering angle command.
-    For SunFounder discrete tracking:
-      offset is in {-1,0,+1} and gain_deg should be 'offset_deg' (e.g., 20).
     """
-    def __init__(self, car, gain_deg = 20.0, max_deg = None, speed_scale = 0.0, min_speed = 25):
+    def __init__(self, car, gain_deg=22.0, max_deg=None, speed_scale=0.6, min_speed=25):
+        # Requirement 3.3.1
         self.car = car
         self.gain_deg = float(gain_deg)
         self.max_deg = float(max_deg) if max_deg is not None else float(getattr(car, "DIR_MAX", 30))
@@ -141,39 +136,34 @@ class Controller():
         self.min_speed = int(min_speed)
 
     def steer_angle(self, offset):
+        # Requirement 3.3.2 (call servo method + return angle)
+        # positive offset => line left => steer left (positive angle)
         angle = self.gain_deg * float(offset)
         angle = max(-self.max_deg, min(self.max_deg, angle))
         self.car.set_dir_servo_angle(angle)
         return angle
 
     def speed_cmd(self, base_speed: int, offset: float):
-        # SunFounder behavior is basically constant power; keep speed_scale at 0.0
+        # Reduce speed as |offset| grows. Helps prevent oscillation.
         base = int(base_speed)
         k = self.speed_scale
         s = int(base * (1.0 - k * min(1.0, abs(float(offset)))))
         return max(self.min_speed, min(100, s))
 
 
-def line_follow_loop(car, sensor, interpreter, controller, base_speed = 25, dt = 0.05):
+def line_follow_loop(car, sensor, interpreter, controller, base_speed=25, dt=0.05):
+    # Requirement 3.4: loop integrates sensing -> interpretation -> control -> motion
     try:
         while True:
             readings = sensor.read()
             offset = interpreter.process(readings)
-
-            # SunFounder: if stop -> recovery behavior
-            if interpreter.state == "stop":
-                logging.info(f"adc={readings} state=stop last={interpreter.last_state} -> outHandle()")
-                interpreter.outHandle(sensor)
-                time.sleep(dt)
-                continue
-
             angle = controller.steer_angle(offset)
             speed = controller.speed_cmd(base_speed, offset)
 
             car.forward(speed)
 
             logging.info(
-                f"adc={readings} state={interpreter.state:7s} offset={offset:+.0f} angle={angle:+.1f} speed={speed:3d}"
+                f"adc={readings}  offset={offset:+.2f}  angle={angle:+.1f}  speed={speed:3d}"
             )
             time.sleep(dt)
 
@@ -186,11 +176,10 @@ def line_follow_loop(car, sensor, interpreter, controller, base_speed = 25, dt =
 
 def main():
     car = Picarx()
-    sensor = Sensor(car)
-    interpreter = Interpreter(car, offset_deg=20.0, px_power=10)
-    controller = Controller(car, gain_deg=interpreter.offset_deg, speed_scale=0.0, min_speed=interpreter.px_power)
-
-    line_follow_loop(car, sensor, interpreter, controller, base_speed=interpreter.px_power, dt=0.05)
+    sensor = Sensor()
+    interpreter = Interpreter(sensitivity=0.25, polarity="dark", deadband=0.05)
+    controller = Controller(car, gain_deg=22.0)
+    line_follow_loop(car, sensor, interpreter, controller, base_speed=25, dt=0.05)
 
 
 if __name__ == "__main__":
