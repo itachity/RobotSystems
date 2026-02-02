@@ -153,50 +153,63 @@ class Controller():
 
 def line_follow_loop(car, sensor, interpreter, controller,
                      base_speed=25, dt=0.05,
-                     move_time=0.12, stop_time=0.05):
+                     offset_change_thresh=0.20,
+                     stop_time=0.06,
+                     min_stop_interval=0.40):
     """
-    Step-drive line following:
-      1) Sense + compute offset
-      2) Set steering
-      3) Move forward briefly
-      4) Stop briefly
-      5) Repeat
+    Continuous drive, but briefly stop ONLY when offset changes meaningfully.
+    base_speed is 25 and Controller.min_speed should be 25.
     """
+    last_offset = 0.0
+    last_stop_t = 0.0
+
+    def sign(x):
+        if x > 0: return 1
+        if x < 0: return -1
+        return 0
+
     try:
         while True:
-            # 1) Sense
             readings = sensor.read()
             offset = interpreter.process(readings)
 
-            # 2) Steer (sets servo inside)
+            # Decide if we should do a brief "re-sense stop"
+            now = time.time()
+            delta = abs(offset - last_offset)
+            sign_flip = (sign(offset) != sign(last_offset)) and (sign(offset) != 0) and (sign(last_offset) != 0)
+            big_change = delta >= offset_change_thresh
+
+            should_stop = (sign_flip or big_change) and ((now - last_stop_t) >= min_stop_interval)
+
+            if should_stop:
+                car.stop()
+                logging.info(
+                    f"adc={readings}  offset={offset:+.2f}  last={last_offset:+.2f}  delta={delta:.2f}  ACTION=stop"
+                )
+                time.sleep(stop_time)
+                last_stop_t = now
+
+                # Re-sense immediately after stopping for a cleaner offset
+                readings = sensor.read()
+                offset = interpreter.process(readings)
+
             angle = controller.steer_angle(offset)
+            speed = controller.speed_cmd(base_speed, offset)  # base/min should both be 25
 
-            # 3) Speed (min/base both 25 enforced by controller + base_speed=25)
-            speed = controller.speed_cmd(base_speed, offset)
-
-            # 4) Move briefly
             car.forward(speed)
+
             logging.info(
-                f"adc={readings}  offset={offset:+.2f}  angle={angle:+.1f}  speed={speed:3d}  ACTION=move"
+                f"adc={readings}  offset={offset:+.2f}  angle={angle:+.1f}  speed={speed:3d}"
             )
-            time.sleep(move_time)
 
-            # 5) Stop briefly
-            car.stop()
-            logging.info("ACTION=stop")
-            time.sleep(stop_time)
-
-            # optional loop pacing (usually not needed if using stop_time)
-            if dt > 0:
-                time.sleep(dt)
+            last_offset = offset
+            time.sleep(dt)
 
     except KeyboardInterrupt:
         pass
     finally:
         car.stop()
         car.set_dir_servo_angle(0)
-
-
 
 def main():
     car = Picarx()
