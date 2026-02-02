@@ -154,7 +154,7 @@ class Controller():
         return max(self.min_speed, min(100, s))
 
 
-def line_follow_loop(car, sensor, interpreter, controller, base_speed = 10, dt = 0.05):
+def line_follow_loop(car, sensor, interpreter, controller, base_speed = 25, dt = 0.05):
     try:
         while True:
             readings = sensor.read()
