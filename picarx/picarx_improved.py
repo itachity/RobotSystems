@@ -13,24 +13,23 @@ except ImportError:
 import time
 
 # Debugging Section
-
 import logging
 
 logging_format = "%(asctime)s: %(message)s"
 logging.basicConfig(format=logging_format, level=logging.INFO, datefmt="%H:%M:%S")
 logging.getLogger().setLevel(logging.DEBUG)
 
-#from logdecorator import log_on_start, log_on_end, log_on_error
-
 # Code Improvement imports
 import atexit
 import math
+
 
 def constrain(x, min_val, max_val):
     '''
     Constrains value to be within a range.
     '''
     return max(min_val, min(max_val, x))
+
 
 class Picarx(object):
     CONFIG = '/opt/picar-x/picar-x.conf'
@@ -55,18 +54,17 @@ class Picarx(object):
 
     MIN_TURN_PWM = 30      # prevents inside wheel stalling during turns
 
-
     # servo_pins: camera_pan_servo, camera_tilt_servo, direction_servo
     # motor_pins: left_swicth, right_swicth, left_pwm, right_pwm
     # grayscale_pins: 3 adc channels
     # ultrasonic_pins: trig, echo2
     # config: path of config file
-    def __init__(self, 
-                servo_pins:list=['P0', 'P1', 'P2'], 
-                motor_pins:list=['D4', 'D5', 'P13', 'P12'],
-                grayscale_pins:list=['A0', 'A1', 'A2'],
-                ultrasonic_pins:list=['D2','D3'],
-                config:str=CONFIG,
+    def __init__(self,
+                servo_pins: list = ['P0', 'P1', 'P2'],
+                motor_pins: list = ['D4', 'D5', 'P13', 'P12'],
+                grayscale_pins: list = ['A0', 'A1', 'A2'],
+                ultrasonic_pins: list = ['D2', 'D3'],
+                config: str = CONFIG,
                 ):
 
         # reset robot_hat
@@ -74,17 +72,15 @@ class Picarx(object):
             utils.reset_mcu()
             time.sleep(0.2)
 
-
         # --------- config_flie ---------
         if on_the_robot:
             self.config_flie = fileDB(config, 777, os.getlogin())
         else:
             self.config_flie = fileDB(config, 777, owner=None)
 
-
         # --------- servos init ---------
         self.cam_pan = Servo(servo_pins[0])
-        self.cam_tilt = Servo(servo_pins[1])   
+        self.cam_tilt = Servo(servo_pins[1])
         self.dir_servo_pin = Servo(servo_pins[2])
         # get calibration values
         self.dir_cali_val = float(self.config_flie.get("picarx_dir_servo", default_value=0))
@@ -124,20 +120,19 @@ class Picarx(object):
         self.grayscale.reference(self.line_reference)
 
         # --------- ultrasonic init ---------
-        trig, echo= ultrasonic_pins
+        trig, echo = ultrasonic_pins
         self.ultrasonic = Ultrasonic(Pin(trig), Pin(echo, mode=Pin.IN, pull=Pin.PULL_DOWN))
 
         # stop motors on exit
         atexit.register(self.stop)
 
-    
     def set_motor_speed(self, motor, speed):
         ''' set motor speed
-        
+
         param motor: motor index, 1 means left motor, 2 means right motor
         type motor: int
         param speed: speed
-        type speed: int      
+        type speed: int
         '''
         speed = constrain(speed, -100, 100)
         motor -= 1
@@ -147,10 +142,10 @@ class Picarx(object):
             direction = -1 * self.cali_dir_value[motor]
         speed = abs(speed)
         logging.debug(f"direction: {direction}, speed: {speed}")
-        
+
         speed = int(speed)
         speed = speed - self.cali_speed_value[motor]
-        speed = constrain(speed, 0, 100) # valid pwm range
+        speed = constrain(speed, 0, 100)  # valid pwm range
 
         if direction < 0:
             self.motor_direction_pins[motor].high()
@@ -170,12 +165,12 @@ class Picarx(object):
 
     def motor_direction_calibrate(self, motor, value):
         ''' set motor direction calibration value
-        
+
         param motor: motor index, 1 means left motor, 2 means right motor
         type motor: int
         param value: speed
         type value: int
-        '''      
+        '''
         motor -= 1
         if value == 1:
             self.cali_dir_value[motor] = 1
@@ -185,37 +180,36 @@ class Picarx(object):
 
     def dir_servo_calibrate(self, value):
         self.dir_cali_val = value
-        self.config_flie.set("picarx_dir_servo", "%s"%value)
+        self.config_flie.set("picarx_dir_servo", "%s" % value)
         self.dir_servo_pin.angle(value)
 
     def set_dir_servo_angle(self, value):
         self.dir_current_angle = constrain(value, self.DIR_MIN, self.DIR_MAX)
-        angle_value  = self.dir_current_angle + self.dir_cali_val
+        angle_value = self.dir_current_angle + self.dir_cali_val
         self.dir_servo_pin.angle(angle_value)
 
     def cam_pan_servo_calibrate(self, value):
         self.cam_pan_cali_val = value
-        self.config_flie.set("picarx_cam_pan_servo", "%s"%value)
+        self.config_flie.set("picarx_cam_pan_servo", "%s" % value)
         self.cam_pan.angle(value)
 
     def cam_tilt_servo_calibrate(self, value):
         self.cam_tilt_cali_val = value
-        self.config_flie.set("picarx_cam_tilt_servo", "%s"%value)
+        self.config_flie.set("picarx_cam_tilt_servo", "%s" % value)
         self.cam_tilt.angle(value)
 
     def set_cam_pan_angle(self, value):
         value = constrain(value, self.CAM_PAN_MIN, self.CAM_PAN_MAX)
-        self.cam_pan.angle(-1*(value + -1*self.cam_pan_cali_val))
+        self.cam_pan.angle(-1 * (value + -1 * self.cam_pan_cali_val))
 
-    def set_cam_tilt_angle(self,value):
+    def set_cam_tilt_angle(self, value):
         value = constrain(value, self.CAM_TILT_MIN, self.CAM_TILT_MAX)
-        self.cam_tilt.angle(-1*(value + -1*self.cam_tilt_cali_val))
+        self.cam_tilt.angle(-1 * (value + -1 * self.cam_tilt_cali_val))
 
     def set_power(self, speed):
         self.set_motor_speed(1, speed)
         self.set_motor_speed(2, speed)
 
-    # Code Improvement helper functions
     def _ackermann_inner_ratio(self, angle_deg: float) -> float:
         """
         Returns inner/outer speed ratio based on a simple Ackermann approximation.
@@ -236,16 +230,31 @@ class Picarx(object):
 
         return constrain(ratio, 0.4, 1.0)
 
+    def _apply_min_turn_pwm(self, inner: float, outer: float, angle: float) -> float:
+
+        if abs(angle) <= 1e-3 or outer <= 0:
+            return inner
+
+        # Only meaningful when turning and moving forward/backward with positive magnitudes.
+        if inner > 0:
+            min_turn = min(float(self.MIN_TURN_PWM), float(outer))
+            if inner < min_turn:
+                inner = min_turn
+
+            # hard safety: never let inner exceed outer
+            if inner > outer:
+                inner = outer
+
+        return inner
 
     def backward(self, speed):
         angle = self.dir_current_angle
         ratio = self._ackermann_inner_ratio(angle)
 
-        outer = float(speed)
+        outer = float(abs(speed))
         inner = outer * ratio
 
-        if abs(angle) > 1e-3 and inner > 0 and inner < self.MIN_TURN_PWM:
-            inner = float(self.MIN_TURN_PWM)
+        inner = self._apply_min_turn_pwm(inner, outer, angle)
 
         if angle > 0:
             left_cmd = inner
@@ -262,21 +271,18 @@ class Picarx(object):
             f"left_cmd={left_cmd:.1f}, right_cmd={right_cmd:.1f}"
         )
 
+        # backward sign convention matches your existing implementation
         self.set_motor_speed(1, -left_cmd)
         self.set_motor_speed(2, right_cmd)
-
-
 
     def forward(self, speed):
         angle = self.dir_current_angle
         ratio = self._ackermann_inner_ratio(angle)
 
-        outer = float(speed)
+        outer = float(abs(speed))
         inner = outer * ratio
 
-        # prevent inside wheel stall when turning
-        if abs(angle) > 1e-3 and inner > 0 and inner < self.MIN_TURN_PWM:
-            inner = float(self.MIN_TURN_PWM)
+        inner = self._apply_min_turn_pwm(inner, outer, angle)
 
         if angle > 0:
             # steering +: assume left is inner (swap if your steering is opposite)
@@ -294,10 +300,9 @@ class Picarx(object):
             f"left_cmd={left_cmd:.1f}, right_cmd={right_cmd:.1f}"
         )
 
+        # forward sign convention matches your existing implementation
         self.set_motor_speed(1, left_cmd)
         self.set_motor_speed(2, -right_cmd)
-
-                   
 
     def stop(self):
         '''
@@ -324,15 +329,15 @@ class Picarx(object):
     def get_grayscale_data(self):
         return list.copy(self.grayscale.read())
 
-    def get_line_status(self,gm_val_list):
+    def get_line_status(self, gm_val_list):
         return self.grayscale.read_status(gm_val_list)
 
     def set_line_reference(self, value):
         self.set_grayscale_reference(value)
 
-    def get_cliff_status(self,gm_val_list):
-        for i in range(0,3):
-            if gm_val_list[i]<=self.cliff_reference[i]:
+    def get_cliff_status(self, gm_val_list):
+        for i in range(0, 3):
+            if gm_val_list[i] <= self.cliff_reference[i]:
                 return True
         return False
 
@@ -352,6 +357,7 @@ class Picarx(object):
     def close(self):
         self.reset()
         self.ultrasonic.close()
+
 
 if __name__ == "__main__":
     px = Picarx()
