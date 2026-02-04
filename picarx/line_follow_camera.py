@@ -91,24 +91,58 @@ class Controller():
     """
     Maps offset in [-1, 1] to a steering angle command.
     """
-    def __init__(self, car, gain_deg: float = 25.0, max_deg: float = 35.0):
+    def __init__(self, car, gain_deg=22.0, max_deg=None, speed_scale=0.6, min_speed=25):
+
         self.car = car
         self.gain_deg = float(gain_deg)
-        self.max_deg = float(max_deg)
+        self.max_deg = float(max_deg) if max_deg is not None else float(getattr(car, "DIR_MAX", 30))
+        self.speed_scale = float(speed_scale)
+        self.min_speed = int(min_speed)
 
-    def steer(self, offset: float) -> float:
-        # positive offset means line is left of robot, so steer left (positive angle)
-        angle = self.gain_deg * offset
+    def steer_angle(self, offset):
+        # positive offset => line left => steer LEFT
+        angle = -self.gain_deg * float(offset)
         angle = max(-self.max_deg, min(self.max_deg, angle))
-
-        # SunFounder PiCar-X typically uses set_dir_servo_angle(angle)
-        # If your method name differs, fix it here.
         self.car.set_dir_servo_angle(angle)
         return angle
 
-sense = Sensor()
-interpret = Interpreter()
+    def speed_cmd(self, base_speed: int, offset: float):
+        # Reduce speed as |offset| grows. Helps prevent oscillation.
+        base = int(base_speed)
+        k = self.speed_scale
+        s = int(base * (1.0 - k * min(1.0, abs(float(offset)))))
+        return max(self.min_speed, min(100, s))
 
-while True:
-    print(interpret.process(sense.read()))
-    time.sleep(0.5)
+def line_follow_loop(car, sensor, interpreter, controller, base_speed = 25, dt = 0.05):
+    try:
+        while True:
+            readings = sensor.read()
+            offset = interpreter.process(readings)
+            angle = controller.steer_angle(offset)
+            speed = controller.speed_cmd(base_speed, offset)
+            #car.forward(speed)
+
+            logging.info(
+                f"adc={readings}  offset={offset:+.2f}  angle={angle:+.1f} speed={speed:3d} "
+            )
+
+            time.sleep(dt)
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        car.stop()
+        car.set_dir_servo_angle(0)
+
+
+def main():
+
+    car = Picarx()
+    sensor = Sensor()
+    interpreter = Interpreter()
+    controller = Controller(car)
+    line_follow_loop(car, sensor, interpreter, controller)
+
+
+if __name__ == "__main__":
+    main()
