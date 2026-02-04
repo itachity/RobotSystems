@@ -27,7 +27,7 @@ class Sensor():
         self.picam2.start()
         time.sleep(0.2)
 
-    def read_frame(self):
+    def read(self):
         # Returns RGB; OpenCV wants BGR
         rgb = self.picam2.capture_array()
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
