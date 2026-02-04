@@ -125,7 +125,7 @@ def line_follow_loop(car, sensor, interpreter, controller, base_speed = 25, dt =
             car.forward(speed)
 
             logging.info(
-                f"adc={readings}  offset={offset:+.2f}  angle={angle:+.1f} speed={speed:3d} "
+                f"offset={offset:+.2f}  angle={angle:+.1f} speed={speed:3d} "
             )
 
             time.sleep(dt)
