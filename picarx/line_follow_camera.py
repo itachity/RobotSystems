@@ -1,6 +1,7 @@
 import time
 import cv2
 import logging
+from picarx_improved import Picarx
 
 logging_format = "%(asctime)s: %(message)s"
 logging.basicConfig(format=logging_format, level=logging.INFO, datefmt="%H:%M:%S")
