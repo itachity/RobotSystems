@@ -14,32 +14,54 @@ except ImportError:
 
 from vilib import Vilib
 
+import time
+import cv2
+from vilib import Vilib
+
 class Sensor():
     """
-    Reads camera
+    Uses Vilib as the camera owner (web stream),
+    and reads frames from the MJPG stream via OpenCV.
     """
-    def __init__(self, width: int = 320, height: int = 240):
-        if Picamera2 is None:
-            raise RuntimeError("picamera2 not available. Install python3-picamera2 on the Pi.")
-        self.w = width
-        self.h = height
-        self.picam2 = Picamera2()
-        config = self.picam2.create_preview_configuration(main={"size": (width, height), "format": "RGB888"})
-        self.picam2.configure(config)
-        self.picam2.start()
-        time.sleep(0.2)
+    def __init__(self, url="http://127.0.0.1:9000/mjpg", warmup_s=0.5,
+                 vflip=False, hflip=False, local=False, web=True):
+
+        # Start Vilib streaming (this is the only thing that touches the camera)
+        Vilib.camera_start(vflip=vflip, hflip=hflip)
+        Vilib.display(local=local, web=web)
+
+        time.sleep(warmup_s)
+
+        self.cap = cv2.VideoCapture(url)
+        if not self.cap.isOpened():
+            raise RuntimeError(f"Failed to open MJPG stream at {url}")
 
     def read(self):
-        # Returns RGB; OpenCV wants BGR
-        rgb = self.picam2.capture_array()
-        bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-        return bgr
-
+        # Grab a fresh frame
+        ret, frame = self.cap.read()
+        if not ret or frame is None:
+            # quick reconnect attempt
+            self.cap.release()
+            time.sleep(0.1)
+            self.cap = cv2.VideoCapture("http://127.0.0.1:9000/mjpg")
+            ret, frame = self.cap.read()
+            if not ret or frame is None:
+                raise RuntimeError("Failed to read frame from MJPG stream")
+        return frame
 
     def poll(self):
         while True:
-            print(self.read_frame)
+            print(self.read)
             time.sleep(0.05)
+
+    def close(self):
+        try:
+            self.cap.release()
+        except:
+            pass
+
+
+    
 
 class Interpreter():
     """
@@ -140,9 +162,6 @@ def line_follow_loop(car, sensor, interpreter, controller, base_speed = 25, dt =
 
 
 def main():
-    Vilib.camera_start(vflip=False, hflip=False)
-    Vilib.display(local=False, web=True)
-
     car = Picarx()
 
     car.set_cam_pan_angle(0)
