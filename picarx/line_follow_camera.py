@@ -5,7 +5,14 @@ from picarx_improved import Picarx
 
 logging_format = "%(asctime)s: %(message)s"
 logging.basicConfig(format=logging_format, level=logging.INFO, datefmt="%H:%M:%S")
-logging.getLogger().setLevel(logging.DEBUG)
+
+# Keep your app logs
+logging.getLogger().setLevel(logging.INFO)
+
+# Silence Picamera2 "Execute job" spam (it's DEBUG-level)
+logging.getLogger("picamera2").setLevel(logging.WARNING)
+logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
+
 
 try:
     from picamera2 import Picamera2
