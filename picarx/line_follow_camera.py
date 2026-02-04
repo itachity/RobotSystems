@@ -140,6 +140,11 @@ def line_follow_loop(car, sensor, interpreter, controller, base_speed = 25, dt =
 def main():
 
     car = Picarx()
+
+    car.set_cam_pan_angle(0)
+    car.set_cam_tilt_angle(-30)
+    time.sleep(0.2)
+
     sensor = Sensor()
     interpreter = Interpreter()
     controller = Controller(car)
