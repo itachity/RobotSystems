@@ -12,6 +12,8 @@ try:
 except ImportError:
     Picamera2 = None
 
+from vilib import Vilib
+
 class Sensor():
     """
     Reads camera
@@ -138,11 +140,13 @@ def line_follow_loop(car, sensor, interpreter, controller, base_speed = 25, dt =
 
 
 def main():
+    Vilib.camera_start(vflip=False, hflip=False)
+    Vilib.display(local=False, web=True)
 
     car = Picarx()
 
     car.set_cam_pan_angle(0)
-    car.set_cam_tilt_angle(-30)
+    car.set_cam_tilt_angle(-45)
     time.sleep(0.2)
 
     sensor = Sensor()
