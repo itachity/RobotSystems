@@ -17,11 +17,9 @@ class Sensor():
     Reads 3 sensors
     """
     def __init__(self):
-        # Requirement 3.1.1: ADC structures as attributes using self.
         self.adcs = [ADC(p) for p in ["A0", "A1", "A2"]]
 
     def read(self):
-        # Requirement 3.1.2: poll the three ADC structures and return as list
         return [a.read() for a in self.adcs]
 
     def poll(self):
@@ -42,7 +40,7 @@ class Interpreter():
       - Positive offset means the line is LEFT of the robot
     """
     def __init__(self, sensitivity=0.25, polarity="dark", deadband=0.05):
-        # Requirement 3.2.1
+
         if polarity not in ("dark", "light"):
             raise ValueError('polarity must be "dark" or "light"')
 
@@ -52,11 +50,11 @@ class Interpreter():
 
         # Extra robustness knobs (still same class)
         self.noise_floor_frac = 0.05   # ignore tiny score changes
-        self.snap_conf = 0.90          # snap to ±1 when very confident
+        self.snap_conf = 0.90          # snap to +-1 when very confident
         self.snap_mag = 0.60           # only snap when already far from center
 
     def process(self, readings):
-        # Requirement 3.2.2 + 3.2.3
+
         if len(readings) != 3:
             raise ValueError("readings must be a list of 3 values")
 
@@ -128,7 +126,7 @@ class Controller():
     Maps offset in [-1, 1] to a steering angle command.
     """
     def __init__(self, car, gain_deg=22.0, max_deg=None, speed_scale=0.6, min_speed=25):
-        # Requirement 3.3.1
+
         self.car = car
         self.gain_deg = float(gain_deg)
         self.max_deg = float(max_deg) if max_deg is not None else float(getattr(car, "DIR_MAX", 30))
@@ -136,9 +134,8 @@ class Controller():
         self.min_speed = int(min_speed)
 
     def steer_angle(self, offset):
-        # Requirement 3.3.2 (call servo method + return angle)
-        # positive offset => line left => steer left (positive angle)
-        angle = self.gain_deg * float(offset)
+        # positive offset => line left => steer LEFT
+        angle = -self.gain_deg * float(offset)
         angle = max(-self.max_deg, min(self.max_deg, angle))
         self.car.set_dir_servo_angle(angle)
         return angle
@@ -151,58 +148,18 @@ class Controller():
         return max(self.min_speed, min(100, s))
 
 
-def line_follow_loop(car, sensor, interpreter, controller,
-                     base_speed=25, dt=0.05,
-                     offset_change_thresh=0.10,
-                     stop_time=0.06,
-                     min_stop_interval=0.40):
-    """
-    Continuous drive, but briefly stop ONLY when offset changes meaningfully.
-    base_speed is 25 and Controller.min_speed should be 25.
-    """
-    last_offset = 0.0
-    last_stop_t = 0.0
-
-    def sign(x):
-        if x > 0: return 1
-        if x < 0: return -1
-        return 0
-
+def line_follow_loop(car, sensor, interpreter, controller, base_speed = 25, dt = 0.05):
     try:
         while True:
             readings = sensor.read()
             offset = interpreter.process(readings)
-
-            # Decide if we should do a brief "re-sense stop"
-            now = time.time()
-            delta = abs(offset - last_offset)
-            sign_flip = (sign(offset) != sign(last_offset)) and (sign(offset) != 0) and (sign(last_offset) != 0)
-            big_change = delta >= offset_change_thresh
-
-            should_stop = (sign_flip or big_change) and ((now - last_stop_t) >= min_stop_interval)
-
-            if should_stop:
-                car.stop()
-                logging.info(
-                    f"adc={readings}  offset={offset:+.2f}  last={last_offset:+.2f}  delta={delta:.2f}  ACTION=stop"
-                )
-                time.sleep(stop_time)
-                last_stop_t = now
-
-                # Re-sense immediately after stopping for a cleaner offset
-                readings = sensor.read()
-                offset = interpreter.process(readings)
-
             angle = controller.steer_angle(offset)
-            speed = controller.speed_cmd(base_speed, offset)  # base/min should both be 25
-
+            speed = controller.speed_cmd(base_speed, offset)
             car.forward(speed)
 
             logging.info(
-                f"adc={readings}  offset={offset:+.2f}  angle={angle:+.1f}  speed={speed:3d}"
+                f"adc={readings}  offset={offset:+.2f}  angle={angle:+.1f} speed={speed:3d} "
             )
-
-            last_offset = offset
             time.sleep(dt)
 
     except KeyboardInterrupt:
@@ -211,12 +168,14 @@ def line_follow_loop(car, sensor, interpreter, controller,
         car.stop()
         car.set_dir_servo_angle(0)
 
+
 def main():
+
     car = Picarx()
     sensor = Sensor()
-    interpreter = Interpreter(sensitivity=0.25, polarity="dark", deadband=0.05)
-    controller = Controller(car, gain_deg=22.0)
-    line_follow_loop(car, sensor, interpreter, controller, base_speed=25, dt=0.05)
+    interpreter = Interpreter()
+    controller = Controller(car)
+    line_follow_loop(car, sensor, interpreter, controller)
 
 
 if __name__ == "__main__":
