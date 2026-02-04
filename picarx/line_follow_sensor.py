@@ -134,8 +134,8 @@ class Controller():
         self.min_speed = int(min_speed)
 
     def steer_angle(self, offset):
-        # positive offset => line left => steer left (positive angle)
-        angle = self.gain_deg * float(offset)
+        # positive offset => line left => steer LEFT
+        angle = -self.gain_deg * float(offset)
         angle = max(-self.max_deg, min(self.max_deg, angle))
         self.car.set_dir_servo_angle(angle)
         return angle
