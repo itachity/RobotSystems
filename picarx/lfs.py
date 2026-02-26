@@ -155,7 +155,7 @@ def line_follow_loop(car, sensor, interpreter, controller, base_speed = 25, dt =
             offset = interpreter.process(readings)
             angle = controller.steer_angle(offset)
             speed = controller.speed_cmd(base_speed, offset)
-            car.forward(speed)
+            #car.forward(speed)
 
             logging.info(
                 f"adc={readings}  offset={offset:+.2f}  angle={angle:+.1f} speed={speed:3d} "
