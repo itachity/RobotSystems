@@ -159,19 +159,25 @@ class ColorBlockPerception:
         self._ready_hold = 0
 
     def update_color_vote(self, raw_color: str) -> Optional[str]:
-        """N-frame color vote smoothing (ColorSorting-style)."""
+        """
+        Sticky N-frame vote:
+        - Collect vote_len samples
+        - When vote is ready, update last_voted_color
+        - While collecting, keep returning last_voted_color (if known) to avoid flicker
+        """
         mapping = {"red": 1, "green": 2, "blue": 3}
         inv = {1: "red", 2: "green", 3: "blue"}
 
         self.vote_buf.append(mapping.get(raw_color, 0))
+
+        # Not enough samples yet: return last known voted color (sticky)
         if len(self.vote_buf) < self.vote_len:
-            return None
+            return self.last_voted_color
 
         voted_val = int(round(float(np.mean(np.array(self.vote_buf)))))
         self.vote_buf = []
-        voted = inv.get(voted_val, None)
-        self.last_voted_color = voted
-        return voted
+        self.last_voted_color = inv.get(voted_val, None)
+        return self.last_voted_color
 
     def update_stability(self, xy: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
         """Returns (is_stable, (mean_x, mean_y_if_stable_else_current))."""
