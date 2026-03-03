@@ -1,7 +1,7 @@
 import time
 import math
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Iterable, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -20,6 +20,8 @@ class Detection:
     rotation_deg: float
     area: float
     stable: bool
+    box: Optional[np.ndarray] = None    # 4x2 pixel points (on resized frame)
+    ready: bool = False                 # debounced READY state
 
 
 class ColorBlockPerception:
@@ -29,6 +31,7 @@ class ColorBlockPerception:
     - optional ROI masking after first detection (until pick)
     - optional N-frame color voting
     - stability timer to decide when object is "still"
+    - debounced READY output (prevents flicker)
     """
 
     def __init__(
@@ -45,6 +48,9 @@ class ColorBlockPerception:
         vote_len: int = 3,
         # ROI masking mode: "never" | "after_detect" | "during_pick"
         roi_mask_mode: str = "after_detect",
+        # READY debounce
+        ready_frames_required: int = 5,
+        ready_hold_frames: int = 15,
     ):
         self.target_colors = tuple(target_colors)
         self.size = frame_size
@@ -57,6 +63,9 @@ class ColorBlockPerception:
 
         self.vote_len = int(vote_len)
         self.roi_mask_mode = roi_mask_mode
+
+        self.ready_frames_required = int(ready_frames_required)
+        self.ready_hold_frames = int(ready_hold_frames)
 
         # ROI state
         self.roi = None
@@ -74,7 +83,11 @@ class ColorBlockPerception:
         # last rotation
         self.last_rotation = 0.0
 
-    # pipeline steps
+        # READY debounce state
+        self._ready_streak = 0
+        self._ready_hold = 0
+
+    # ---------- pipeline steps ----------
 
     def preprocess(self, frame_bgr: np.ndarray) -> np.ndarray:
         frame_resize = cv2.resize(frame_bgr, self.size, interpolation=cv2.INTER_NEAREST)
@@ -88,7 +101,7 @@ class ColorBlockPerception:
         if self.roi_mask_mode == "never":
             return frame_bgr
         if self.roi_mask_mode == "after_detect" and picking_phase:
-            # after_detect means: mask while detecting/tracking, but stop masking once pick starts
+            # mask while detecting/tracking; stop masking once pick starts
             return frame_bgr
         if self.roi_mask_mode == "during_pick" and not picking_phase:
             return frame_bgr
@@ -118,10 +131,7 @@ class ColorBlockPerception:
         return best, best_area
 
     def select_best_blob(self, frame_lab: np.ndarray) -> Tuple[Optional[str], Optional[np.ndarray], float]:
-        """
-        ColorSorting behavior:
-        evaluate candidate colors and choose the blob with max area overall.
-        """
+        """Choose the blob with max area across candidate colors (ColorSorting behavior)."""
         best_color = None
         best_contour = None
         best_area = 0.0
@@ -145,13 +155,11 @@ class ColorBlockPerception:
         self.center_buf = []
         self.vote_buf = []
         self.last_voted_color = None
+        self._ready_streak = 0
+        self._ready_hold = 0
 
     def update_color_vote(self, raw_color: str) -> Optional[str]:
-        """
-        ColorSorting-style vote:
-        map colors to ints, average over vote_len, round back to color.
-        returns None until vote_len samples are collected.
-        """
+        """N-frame color vote smoothing (ColorSorting-style)."""
         mapping = {"red": 1, "green": 2, "blue": 3}
         inv = {1: "red", 2: "green", 3: "blue"}
 
@@ -166,9 +174,7 @@ class ColorBlockPerception:
         return voted
 
     def update_stability(self, xy: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
-        """
-        Returns (is_stable, (mean_x, mean_y_if_stable_else_current)).
-        """
+        """Returns (is_stable, (mean_x, mean_y_if_stable_else_current))."""
         if self.last_world is None:
             self.last_world = xy
             self.stable_start_t = time.time()
@@ -194,10 +200,32 @@ class ColorBlockPerception:
 
         return False, xy
 
+    def _update_ready(self, base_ready: bool) -> bool:
+        """
+        Debounced READY:
+        - requires base_ready true for N consecutive frames
+        - once READY, holds for M frames even if base_ready briefly glitches
+        """
+        if base_ready:
+            self._ready_streak += 1
+        else:
+            self._ready_streak = 0
+
+        if self._ready_streak >= self.ready_frames_required:
+            self._ready_hold = self.ready_hold_frames
+
+        if self._ready_hold > 0:
+            self._ready_hold -= 1
+            return True
+
+        return False
+
+    # ---------- public API ----------
+
     def process_frame(self, frame_bgr: np.ndarray, picking_phase: bool = False) -> Optional[Detection]:
         """
         Full perception step:
-        - returns Detection (raw_color, voted_color, world pose, stable flag) or None
+        - returns Detection (raw_color, voted_color, world pose, stable flag, bounding box, READY) or None
         """
         frame = self.preprocess(frame_bgr)
         frame = self.apply_roi_mask(frame, picking_phase)
@@ -211,7 +239,7 @@ class ColorBlockPerception:
         # rectangle fit -> ROI update for next frames
         rect = cv2.minAreaRect(contour)
         self.last_rotation = float(rect[2])
-        box = np.int0(cv2.boxPoints(rect))
+        box = np.int0(cv2.boxPoints(rect))  # pixel coords on resized frame
         self.roi = getROI(box)
         self.has_roi = True
 
@@ -225,7 +253,7 @@ class ColorBlockPerception:
         # stability check
         stable, (mean_x, mean_y) = self.update_stability((float(world_x), float(world_y)))
 
-        return Detection(
+        det = Detection(
             raw_color=raw_color,
             voted_color=voted_color,
             world_x=mean_x if stable else float(world_x),
@@ -233,9 +261,19 @@ class ColorBlockPerception:
             rotation_deg=self.last_rotation,
             area=float(area),
             stable=stable,
+            box=box,
+            ready=False,
         )
 
+        base_ready = (det.stable and det.voted_color is not None)
+        det.ready = self._update_ready(base_ready)
+        return det
+
     def annotate(self, frame_bgr: np.ndarray, det: Optional[Detection]) -> np.ndarray:
+        """
+        IMPORTANT: this assumes frame_bgr is already resized to self.size
+        if you want the box to align. (Demo below does that.)
+        """
         out = frame_bgr.copy()
         h, w = out.shape[:2]
         cv2.line(out, (0, h // 2), (w, h // 2), (0, 0, 200), 1)
@@ -245,11 +283,16 @@ class ColorBlockPerception:
             cv2.putText(out, "No detection", (10, h - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 0, 0), 2)
             return out
 
+        # Draw bounding box
+        if det.box is not None:
+            box_color = (0, 255, 0) if det.ready else (0, 0, 255)
+            cv2.drawContours(out, [det.box], -1, box_color, 2)
+
         vote_txt = det.voted_color if det.voted_color is not None else "voting..."
         msg = f"raw={det.raw_color} voted={vote_txt} xy=({det.world_x:.2f},{det.world_y:.2f}) rot={det.rotation_deg:.1f}"
-        if det.stable and det.voted_color is not None:
+        if det.ready:
             msg += "  READY"
 
-        color = (0, 255, 0) if (det.stable and det.voted_color is not None) else (0, 0, 255)
-        cv2.putText(out, msg, (10, h - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
+        text_color = (0, 255, 0) if det.ready else (0, 0, 255)
+        cv2.putText(out, msg, (10, h - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.55, text_color, 2)
         return out
