@@ -256,7 +256,7 @@ def main():
         gripper_close=540,     # <-- replace with your actual close pulse
         z_pick=0.3,            # lower if needed
         z_lift=12.0,
-        y_offset=2.0,
+        y_offset=1.0,
     )
     arm = ArmMotion(cfg)
     arm.home()
