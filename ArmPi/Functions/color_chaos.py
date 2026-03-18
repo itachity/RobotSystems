@@ -182,19 +182,17 @@ YEET_ZONES = [
 ]
 
 
-def dance_with_block(arm, cx, cy, z=11.0, radius=1.2, steps=12, loops=1):
+def dance_with_block(arm, cx, cy, z=12.0, radius=2.5, steps=20, loops=2):
     """
-    "360 dancing" while holding the block:
-    move the end effector in a small circle at a safe lift height.
-    This is safer than a literal ballistic throw.
+    Bigger, slower circle so the 360 motion is clearly visible.
     """
     for _ in range(loops):
         for k in range(steps):
             theta = 2.0 * math.pi * (k / steps)
             x = cx + radius * math.cos(theta)
             y = cy + radius * math.sin(theta)
-            arm.move_xyz(x, y, z, t_ms=160)
-            time.sleep(0.05)
+            arm.move_xyz(x, y, z, t_ms=220)
+            time.sleep(0.08)
 
 
 def chaos_attack(arm, attacker, target):
@@ -253,9 +251,9 @@ def main():
     cfg = MotionConfig(
         gripper_open=220,      # <-- replace with your actual open pulse
         gripper_close=540,     # <-- replace with your actual close pulse
-        z_pick=1.0,            # lower if needed
+        z_pick=0.4,            # lower if needed
         z_lift=12.0,
-        y_offset=0.0,          # set to -2.0 if your geometry needs it
+        y_offset=-2.0,          # set to -2.0 if your geometry needs it
     )
     arm = ArmMotion(cfg)
     arm.home()

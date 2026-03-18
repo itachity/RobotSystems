@@ -129,7 +129,7 @@ class ArmMotion:
         if not self.move_xyz(x, y, self.cfg.z_pick, t_ms=1000):
             return False
         time.sleep(0.4)
-        self.close_gripper()
+        self.close_gripper(ms=700)
         time.sleep(0.6)
 
         # Lift
