@@ -24,8 +24,9 @@ class MotionConfig:
 
     # --- Z heights (cm, in ArmIK world frame) ---
     z_approach: float = 7.0
-    z_pick: float = 0.8
+    z_pick: float = 0.3
     z_lift: float = 12.0
+    release_z_offset: float = -0.5
 
     # --- Small offsets for camera/gripper geometry ---
     x_offset: float = 0.0
@@ -149,7 +150,7 @@ class ArmMotion:
 
         # Descend and release
         self.move_xyz(x, y, z + 3.0, t_ms=500)
-        self.move_xyz(x, y, z, t_ms=1000)
+        self.move_xyz(x, y, z + self.cfg.release_z_offset, t_ms=1000)
         time.sleep(0.3)
         self.open_gripper()
         time.sleep(0.5)
