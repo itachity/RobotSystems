@@ -182,7 +182,7 @@ YEET_ZONES = [
 ]
 
 
-def dance_with_block(arm, cx, cy, z=12.0, radius=2.5, steps=8, loops=2):
+def dance_with_block(arm, cx, cy, z=12.0, radius=5, steps=8, loops=2):
     poses = [
         (cx,         cy,         z),
         (cx+radius,  cy,         z),
@@ -210,7 +210,7 @@ def chaos_attack(arm, attacker, target):
         arm.home()
         return
 
-    dance_with_block(arm, attacker.world_x, attacker.world_y, z=11.0, radius=1.0, steps=12, loops=1)
+    dance_with_block(arm, attacker.world_x, attacker.world_y)
 
     # Move above target and "drop attack"
     arm.move_xyz(target.world_x, target.world_y, 10.0)
@@ -235,7 +235,7 @@ def chaos_yeet(arm, attacker):
         arm.home()
         return
 
-    dance_with_block(arm, attacker.world_x, attacker.world_y, z=11.0, radius=1.0, steps=12, loops=1)
+    dance_with_block(arm, attacker.world_x, attacker.world_y)
 
     yeet_x, yeet_y = random.choice(YEET_ZONES)
     arm.move_xyz(yeet_x, yeet_y, 13.0)
