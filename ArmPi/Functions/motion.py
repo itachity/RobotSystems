@@ -58,6 +58,9 @@ class ArmMotion:
 
     # ---------- low-level primitives ----------
 
+    def set_wrist(self, pulse: int, ms: int = 300):
+        Board.setBusServoPulse(2, pulse, ms)
+
     def beep(self, sec: float = 0.1):
         Board.setBuzzer(1)
         time.sleep(sec)
