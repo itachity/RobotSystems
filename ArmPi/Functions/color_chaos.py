@@ -182,7 +182,7 @@ YEET_ZONES = [
 ]
 
 
-def dance_with_block(arm, cx, cy, z=12.0, radius=2.8, loops=2):
+def dance_with_block(arm, cx, cy, z=12.0, radius=6.9, loops=2):
     """
     Dynamic dance with:
     - side swagger
