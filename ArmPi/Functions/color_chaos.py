@@ -182,26 +182,17 @@ YEET_ZONES = [
 ]
 
 
-def dance_with_block(arm, cx, cy):
-    """
-    Bigger, slower 'dance' using a few waypoints instead of many tiny IK steps.
-    This is much smoother than trying to numerically draw a circle.
-    """
-    z = 12.0
-    r = 2.5
-
+def dance_with_block(arm, cx, cy, z=12.0, radius=2.5, steps=8, loops=2):
     poses = [
-        (cx,     cy,     z),
-        (cx+r,   cy,     z),
-        (cx,     cy+r,   z),
-        (cx-r,   cy,     z),
-        (cx,     cy-r,   z),
-        (cx+r,   cy+r,   z),
-        (cx-r,   cy-r,   z),
-        (cx,     cy,     z),
+        (cx,         cy,         z),
+        (cx+radius,  cy,         z),
+        (cx,         cy+radius,  z),
+        (cx-radius,  cy,         z),
+        (cx,         cy-radius,  z),
+        (cx,         cy,         z),
     ]
 
-    for _ in range(2):  # do 2 loops
+    for _ in range(loops):
         for x, y, zpos in poses:
             arm.move_xyz(x, y, zpos, t_ms=450)
             time.sleep(0.15)
@@ -265,7 +256,7 @@ def main():
         gripper_close=540,     # <-- replace with your actual close pulse
         z_pick=0.3,            # lower if needed
         z_lift=12.0,
-        y_offset=0.0,          # set to -2.0 if your geometry needs it
+        y_offset=2.0,
     )
     arm = ArmMotion(cfg)
     arm.home()
