@@ -182,7 +182,7 @@ YEET_ZONES = [
 ]
 
 
-def dance_with_block(arm, cx, cy, z=12.0, radius=6.9, loops=2):
+def dance_with_block(arm, cx, cy, z=12.0, radius=8, loops=1):
     """
     Dynamic dance with:
     - side swagger
@@ -194,26 +194,26 @@ def dance_with_block(arm, cx, cy, z=12.0, radius=6.9, loops=2):
 
     poses = [
         # x, y, z, move_time_ms, pause_s, wrist_pulse
-        (cx,           cy,           z,     350, 0.10, 500),
+        (cx,           cy,           z,     2*350, 0.10, 500),
 
         # swagger
-        (cx + radius,  cy,           z+0.5, 420, 0.12, 380),
-        (cx - radius,  cy,           z+0.5, 420, 0.12, 620),
+        (cx + radius,  cy,           z+0.5, 2*420, 0.12, 380),
+        (cx - radius,  cy,           z+0.5, 2*420, 0.12, 620),
 
         # forward/back bounce
-        (cx,           cy + radius,  z-0.2, 420, 0.12, 420),
-        (cx,           cy - radius,  z-0.2, 420, 0.12, 580),
+        (cx,           cy + radius,  z-0.2, 2*420, 0.12, 420),
+        (cx,           cy - radius,  z-0.2, 2*420, 0.12, 580),
 
         # diagonal cross-step
-        (cx + radius,  cy + radius,  z+0.8, 450, 0.15, 360),
-        (cx - radius,  cy - radius,  z+0.8, 450, 0.15, 640),
-        (cx - radius,  cy + radius,  z,     450, 0.15, 400),
-        (cx + radius,  cy - radius,  z,     450, 0.15, 600),
+        (cx + radius,  cy + radius,  z+0.8, 2*450, 0.15, 360),
+        (cx - radius,  cy - radius,  z+0.8, 2*450, 0.15, 640),
+        (cx - radius,  cy + radius,  z,     2*450, 0.15, 400),
+        (cx + radius,  cy - radius,  z,     2*450, 0.15, 600),
 
         # center flourish
-        (cx,           cy,           z+1.2, 500, 0.18, 350),
-        (cx,           cy,           z-0.3, 350, 0.12, 650),
-        (cx,           cy,           z,     350, 0.15, 500),
+        (cx,           cy,           z+1.2, 2*500, 0.18, 350),
+        (cx,           cy,           z-0.3, 2*350, 0.12, 650),
+        (cx,           cy,           z,     2*350, 0.15, 500),
     ]
 
     for _ in range(loops):
