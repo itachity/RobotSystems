@@ -24,7 +24,7 @@ class MotionConfig:
 
     # --- Z heights (cm, in ArmIK world frame) ---
     z_approach: float = 7.0
-    z_pick: float = 1.5
+    z_pick: float = 0.8
     z_lift: float = 12.0
 
     # --- Small offsets for camera/gripper geometry ---
