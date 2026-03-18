@@ -182,17 +182,29 @@ YEET_ZONES = [
 ]
 
 
-def dance_with_block(arm, cx, cy, z=12.0, radius=2.5, steps=20, loops=2):
+def dance_with_block(arm, cx, cy):
     """
-    Bigger, slower circle so the 360 motion is clearly visible.
+    Bigger, slower 'dance' using a few waypoints instead of many tiny IK steps.
+    This is much smoother than trying to numerically draw a circle.
     """
-    for _ in range(loops):
-        for k in range(steps):
-            theta = 2.0 * math.pi * (k / steps)
-            x = cx + radius * math.cos(theta)
-            y = cy + radius * math.sin(theta)
-            arm.move_xyz(x, y, z, t_ms=220)
-            time.sleep(0.08)
+    z = 12.0
+    r = 2.5
+
+    poses = [
+        (cx,     cy,     z),
+        (cx+r,   cy,     z),
+        (cx,     cy+r,   z),
+        (cx-r,   cy,     z),
+        (cx,     cy-r,   z),
+        (cx+r,   cy+r,   z),
+        (cx-r,   cy-r,   z),
+        (cx,     cy,     z),
+    ]
+
+    for _ in range(2):  # do 2 loops
+        for x, y, zpos in poses:
+            arm.move_xyz(x, y, zpos, t_ms=450)
+            time.sleep(0.15)
 
 
 def chaos_attack(arm, attacker, target):
@@ -251,9 +263,9 @@ def main():
     cfg = MotionConfig(
         gripper_open=220,      # <-- replace with your actual open pulse
         gripper_close=540,     # <-- replace with your actual close pulse
-        z_pick=0.4,            # lower if needed
+        z_pick=0.3,            # lower if needed
         z_lift=12.0,
-        y_offset=-2.0,          # set to -2.0 if your geometry needs it
+        y_offset=0.0,          # set to -2.0 if your geometry needs it
     )
     arm = ArmMotion(cfg)
     arm.home()
